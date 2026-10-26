@@ -1,0 +1,6 @@
+app/env/
+app/outputs/*
+!app/outputs/.gitkeep
+__pycache__/
+*.pyc
+cache/
