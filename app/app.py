@@ -5,6 +5,7 @@ import time
 import gradio as gr
 
 import musicvideo
+from enhancer import BACKENDS, ENHANCER
 from engine import ENGINE, MODELS, NEGATIVE_DEFAULT, model_choices
 from video_io import write_frames
 
@@ -71,6 +72,32 @@ def mv_render(audio, plan, model, negative, start_image, continuity, width, heig
     return final, f"Saved {final} ({len(clips)} clips)"
 
 
+def _enhance(prompt, mode, backend, url, model, key):
+    try:
+        return ENHANCER.enhance(prompt, mode, backend, url, model, key)
+    except ValueError as e:
+        raise gr.Error(str(e))
+
+
+def enhance_t2v(prompt, backend, url, model, key):
+    return _enhance(prompt, "t2v", backend, url, model, key)
+
+
+def enhance_i2v(prompt, backend, url, model, key):
+    return _enhance(prompt, "i2v", backend, url, model, key)
+
+
+def enhance_plan(plan, backend, url, model, key, progress=gr.Progress()):
+    rows = plan.values.tolist() if hasattr(plan, "values") else [list(r) for r in (plan or [])]
+    rows = [r for r in rows if len(r) >= 5 and str(r[4]).strip()]
+    if not rows:
+        raise gr.Error("The scene plan is empty. Click 'Analyze audio' first.")
+    for i, r in enumerate(rows):
+        progress(i / len(rows), desc=f"Enhancing clip {i + 1}/{len(rows)}")
+        r[4] = _enhance(str(r[4]), "mv", backend, url, model, key)
+    return rows
+
+
 def gen_controls(key, frames=True):
     m = MODELS[key]
     with gr.Accordion("Settings", open=False):
@@ -92,6 +119,14 @@ def gen_controls(key, frames=True):
 with gr.Blocks(title="Video Studio", theme=gr.themes.Soft()) as demo:
     gr.Markdown("# Video Studio\nText-to-video, image-to-video and audio-driven music videos. "
                 "Models download from Hugging Face on first use.")
+    with gr.Accordion("Prompt enhancer settings", open=False):
+        with gr.Row():
+            e_backend = gr.Dropdown(BACKENDS, value=BACKENDS[0], label="Enhancer backend")
+            e_url = gr.Textbox(label="Base URL (Ollama / OpenAI-compatible)",
+                               placeholder="http://127.0.0.1:11434  or  https://api.openai.com/v1")
+            e_model = gr.Textbox(label="Model name", placeholder="llama3.2  /  gpt-4o-mini")
+            e_key = gr.Textbox(label="API key (OpenAI-compatible)", type="password")
+    e_cfg = [e_backend, e_url, e_model, e_key]
     with gr.Tabs():
         with gr.Tab("Text to Video"):
             with gr.Row():
@@ -99,12 +134,14 @@ with gr.Blocks(title="Video Studio", theme=gr.themes.Soft()) as demo:
                     t_model = gr.Dropdown(model_choices(), value=DEFAULT_MODEL, label="Model")
                     t_prompt = gr.Textbox(label="Prompt", lines=4,
                                           placeholder="A red fox running through a snowy forest at sunrise, cinematic")
+                    t_enh = gr.Button("Enhance prompt", size="sm")
                     t_ctrl = gen_controls(DEFAULT_MODEL)
                     t_btn = gr.Button("Generate", variant="primary")
                 with gr.Column():
                     t_out = gr.Video(label="Result")
                     t_info = gr.Markdown()
             t_model.change(_defaults, t_model, [t_ctrl[1], t_ctrl[2], t_ctrl[3], t_ctrl[4], t_ctrl[5]])
+            t_enh.click(enhance_t2v, [t_prompt, *e_cfg], t_prompt)
             t_btn.click(t2v, [t_model, t_prompt, *t_ctrl], [t_out, t_info])
 
         with gr.Tab("Image to Video"):
@@ -115,12 +152,14 @@ with gr.Blocks(title="Video Studio", theme=gr.themes.Soft()) as demo:
                     i_image = gr.Image(type="pil", label="Start image")
                     i_prompt = gr.Textbox(label="Prompt (describe the motion)", lines=3,
                                           placeholder="The camera slowly pushes in as her hair blows in the wind")
+                    i_enh = gr.Button("Enhance prompt", size="sm")
                     i_ctrl = gen_controls(DEFAULT_MODEL)
                     i_btn = gr.Button("Animate", variant="primary")
                 with gr.Column():
                     i_out = gr.Video(label="Result")
                     i_info = gr.Markdown()
             i_model.change(_defaults, i_model, [i_ctrl[1], i_ctrl[2], i_ctrl[3], i_ctrl[4], i_ctrl[5]])
+            i_enh.click(enhance_i2v, [i_prompt, *e_cfg], i_prompt)
             i_btn.click(i2v, [i_model, i_image, i_prompt, *i_ctrl], [i_out, i_info])
 
         with gr.Tab("Music Video"):
@@ -165,12 +204,14 @@ with gr.Blocks(title="Video Studio", theme=gr.themes.Soft()) as demo:
                     m_plan = gr.Dataframe(headers=musicvideo.PLAN_HEADERS,
                                           datatype=["number", "number", "number", "str", "str"],
                                           interactive=True, wrap=True, label="Scene plan (prompts are editable)")
+                    m_enh = gr.Button("Enhance all scene prompts", size="sm")
                     m_btn = gr.Button("2. Render music video", variant="primary")
                     m_out = gr.Video(label="Music video")
                     m_status = gr.Markdown()
             m_model.change(_size_defaults, m_model, [m_w, m_h, m_steps, m_cfg])
             m_an.click(mv_analyze, [m_audio, m_model, m_scenes, m_style, m_clip, m_start, m_maxdur, m_energy],
                        [m_plan, m_info])
+            m_enh.click(enhance_plan, [m_plan, *e_cfg], m_plan)
             m_btn.click(mv_render, [m_audio, m_plan, m_model, m_neg, m_image, m_cont, m_w, m_h, m_steps, m_cfg,
                                     m_seed, m_low, m_start, m_maxdur], [m_out, m_status])
 

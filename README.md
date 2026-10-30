@@ -6,6 +6,14 @@ One-click [Pinokio](https://pinokio.co) app for local AI video generation on Ubu
 - **Image to Video**: animate a still image, guided by a prompt.
 - **Music Video**: upload a song and it is split into beat-aligned clips. Each clip gets a prompt from your storyline plus the song's energy (calm, mid or energetic), and the prompts can be edited before rendering. The clips are generated, cut to the beat and muxed with the original audio into `music_video.mp4`. You can also start from an image and enable **Continuity**, which seeds each clip from the previous clip's last frame.
 
+## Enhance prompt
+
+**Enhance prompt** buttons (Text to Video and Image to Video tabs) and **Enhance all scene prompts** (Music Video plan) rewrite short ideas into detailed video prompts: subject, motion, setting, camera, lighting and style. Pick the backend under **Prompt enhancer settings**:
+
+- **Local (Qwen2.5 1.5B)**, the default: downloads about 3 GB once and moves off the GPU after each use. Override the model with `VIDEO_STUDIO_ENHANCER_MODEL`.
+- **Ollama**: base URL (default `http://127.0.0.1:11434`) plus a model name (default `llama3.2`).
+- **OpenAI-compatible**: base URL (default `https://api.openai.com/v1`), a model name and an API key (or `OPENAI_API_KEY`). This also works with LM Studio, vLLM, OpenRouter and similar servers.
+
 ## Models
 
 | Model | Modes | Native res / fps | VRAM (with CPU offload) |
