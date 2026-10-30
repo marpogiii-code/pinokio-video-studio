@@ -72,9 +72,10 @@ class Enhancer:
 
 def clean(text):
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S).strip()
-    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"[*_#`]+", "", text)
     text = re.sub(r"^(here is|here's|enhanced prompt|prompt)[^:\n]*:\s*", "", text, flags=re.I)
+    text = re.sub(r"^\w[\w ]{0,24}:\s+", "", text)
     return " ".join(text.strip().strip('"').split())
 
 
