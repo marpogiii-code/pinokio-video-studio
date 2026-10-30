@@ -83,9 +83,9 @@ def _post(url, payload, headers=None):
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
                                  headers={"Content-Type": "application/json", **(headers or {})})
     try:
-        with urllib.request.urlopen(req, timeout=180) as r:
+        with _OPENER.open(req, timeout=180) as r:
             return json.loads(r.read().decode())
-    except OSError as e:
+    except (OSError, ValueError) as e:
         raise ValueError(f"Prompt enhancer request to {url} failed: {e}") from e
 
 
