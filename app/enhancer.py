@@ -37,7 +37,8 @@ class Enhancer:
         if self.model is None:
             self.tok = AutoTokenizer.from_pretrained(LOCAL_MODEL)
             self.model = AutoModelForCausalLM.from_pretrained(
-                LOCAL_MODEL, torch_dtype=torch.bfloat16 if cuda else torch.float32)
+                LOCAL_MODEL, torch_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16)
+                if cuda else torch.float32)
         device = "cuda" if cuda else "cpu"
         self.model.to(device)
         try:
